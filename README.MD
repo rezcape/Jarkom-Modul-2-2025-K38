@@ -29,8 +29,9 @@ Dibuat sebuah project dengan topologi sebagai berikut:
 - Router juga terhubung ke **dua switch**.
 - Masing-masing switch kemudian menghubungkan **dua client**.
 
-Struktur topologi ini dapat dilihat pada gambar berikut:  
-![Image_1](asset\1.png)
+Struktur topologi ini dapat dilihat pada gambar berikut:
+
+![Image_1](asset/1.png)
 
 # Soal 2
 
@@ -43,16 +44,19 @@ iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE -s 192.230.0.0/16
 ```
 
 Sehingga ketika menguji melalui salah satu klien internal, seperti **Cirdan**, maka ketika dilakukan ping 8.8.8.8 (ping google) akan mendapat respons.
-![image_2](asset\2.png)
+
+![image_2](asset/2.png)
 
 # Soal 3
 
 Pada soal ini, kita diminta untuk memverifikasi lagi bahwa semua konfigurasi sudah benar dengan melakukan ping dari klien ke server di jaringan DMZ. Berikut hasil ping dari **Earendil**(Klien Barat) ke **Elrond**(Klien Timur).
 
-![image_3.1](asset\3.png)
+![image_3](asset/3.png)
 
 Kemudian agar semua perangkat bisa menginstall paket atau mengakses internet via nama domain sejak awal, kita diminta untuk menjalankan perintah seperti berikut:
 
 ```
 echo "nameserver 192.168.122.1" > /etc/resolv.conf
 ```
+
+# Soal 4
