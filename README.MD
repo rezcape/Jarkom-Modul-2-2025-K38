@@ -200,40 +200,55 @@ mkdir -p /etc/bind/zones
 ```
 
 #### Buat file zona master
-``` nano /etc/bind/zones/db.k38.com ```
+```bash
+nano /etc/bind/zones/db.k38.com 
+```
 
 #### Konfigurasi BIND master
-``` nano /etc/bind/named.conf.local 
+```bash
+nano /etc/bind/named.conf.local 
 ```
 
 #### Restart BIND
-``` pkill named
+```bash
+pkill named
 named -4 -u bind -c /etc/bind/named.conf
 ```
 
 2. Konfigurasi di Valmar (SLAVE)
 #### Persiapan folder
+```bash
 mkdir -p /var/lib/bind
 chown bind:bind /var/lib/bind
+```
 
 #### Konfigurasi BIND slave
+```bash
 nano /etc/bind/named.conf.local
-
 Restart BIND
 pkill named
 named -4 -u bind -c /etc/bind/named.conf
+```
 
 ### Verifikasi
 3.1 Testing Zone Transfer
-```dig @192.230.3.3 k38.com AXFR```
+```bash
+dig @192.230.3.3 k38.com AXFR
+```
 
 3.2 Cek File Zona di Valmar
-```ls -l /var/lib/bind/```
+```bash
+ls -l /var/lib/bind/
+```
 
 3.3 Verifikasi Serial SOA
 #### Di Tirion
-```dig @192.230.3.3 k38.com SOA```
+```bash
+dig @192.230.3.3 k38.com SOA
+```
 
 #### Di Valmar  
-```dig @192.230.3.4 k38.com SOA```
+```bash
+dig @192.230.3.4 k38.com SOA
+```
 
