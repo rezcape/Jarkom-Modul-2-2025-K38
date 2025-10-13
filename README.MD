@@ -183,3 +183,18 @@ Untuk memastikan DNS Slave berfungsi, layanan BIND9 pada DNS Master (Tirion) dim
 ![image 4.2](asset/4.2.png)
 
 # Soal 5
+
+
+
+# Soal 6: Konfigurasi DNS Master-Slave
+
+Konfigurasi **DNS Master-Slave** antara **Tirion (ns1)** sebagai master dan **Valmar (ns2)** sebagai slave untuk domain `k38.com`.
+
+---
+
+### 1. Konfigurasi di Tirion (MASTER)
+
+#### Buat folder zona
+```bash
+mkdir -p /etc/bind/zones
+
