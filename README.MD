@@ -226,6 +226,8 @@ named -4 -u bind -c /etc/bind/named.conf
 ```
 
 ### Verifikasi
+Kita bisa liat bahwa Valmar dan Tirion mempunyai SOA yg sama 
+
 ## 3.1 Testing Zone Transfer
 ```bash
 dig @192.230.3.3 k38.com AXFR
@@ -240,6 +242,69 @@ dig @192.230.3.3 k38.com SOA
 #### Di Valmar  
 dig @192.230.3.4 k38.com SOA
 ```
+
+##foto
+
+
+# No 8 
+
+### IP & CNAME Mapping
+| Host / Alias        | IP / Canonical Name      |
+|-------------------|------------------------|
+| sirion.k38.com     | 192.230.3.5 (gateway)  |
+| lindon.k38.com     | 192.230.3.6 (web statis) |
+| vingilot.k38.com   | 192.230.3.7 (web dinamis) |
+| www.k38.com        | sirion.k38.com         |
+| static.k38.com     | lindon.k38.com         |
+| app.k38.com        | vingilot.k38.com       |
+
+
+## Langkah Konfigurasi
+
+### 1️⃣ Tirion (MASTER)
+1. **Edit file zona**
+```bash
+nano /etc/bind/zones/db.k38.com
+```
+
+### 2️⃣ Valmar (SLAVE)
+
+Restart BIND untuk zone transfer
+
+pkill named
+named -4 -u bind -c /etc/bind/named.conf
+
+
+Verifikasi zone transfer
+
+dig @192.230.3.3 k38.com AXFR
+
+### 3️⃣ Verifikasi dari Klien
+
+#### Konfigurasi resolver
+```
+nano /etc/resolv.conf
+
+Isi:
+nameserver 192.230.3.3
+nameserver 192.230.3.4
+```
+
+#### Test A Records
+```bash 
+dig sirion.k38.com
+dig lindon.k38.com
+dig vingilot.k38.com
+```
+
+
+#### Test CNAME Records
+``` bash 
+dig www.k38.com
+dig static.k38.com
+dig app.k38.com
+```
+
 
 
 
