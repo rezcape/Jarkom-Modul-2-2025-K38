@@ -246,7 +246,7 @@ dig @192.230.3.4 k38.com SOA
 ##foto
 
 
-# No 8 
+# No 7
 
 ### IP & CNAME Mapping
 | Host / Alias        | IP / Canonical Name      |
@@ -269,15 +269,16 @@ nano /etc/bind/zones/db.k38.com
 
 ### 2️⃣ Valmar (SLAVE)
 
-Restart BIND untuk zone transfer
+#### Restart BIND untuk zone transfer
 
+```bash 
 pkill named
 named -4 -u bind -c /etc/bind/named.conf
 
-
-Verifikasi zone transfer
+#### Verifikasi zone transfer
 
 dig @192.230.3.3 k38.com AXFR
+```
 
 ### 3️⃣ Verifikasi dari Klien
 
@@ -304,6 +305,182 @@ dig www.k38.com
 dig static.k38.com
 dig app.k38.com
 ```
+
+#foto7-
+
+# Soal 8
+Membuat **reverse DNS zone** untuk segmen **192.230.3.0/24** agar pencarian balik IP menampilkan hostname yang benar.
+
+## ⚙️ Konfigurasi
+**Tirion (ns1):** 192.230.3.3  
+**Valmar (ns2):** 192.230.3.4  
+**Reverse Zone:** `3.230.192.in-addr.arpa`
+
+
+## 🔧 Langkah
+
+### Di Tirion (MASTER)
+```bash
+mkdir -p /etc/bind/zones
+nano /etc/bind/named.conf.local
+
+Isi:
+
+zone "3.230.192.in-addr.arpa" {
+  type master;
+  file "/etc/bind/zones/db.192.230.3";
+  allow-transfer { 192.230.3.4; };
+};
+```
+
+
+#### Buat file zona:
+```bash 
+nano /etc/bind/zones/db.192.230.3
+
+Isi:
+
+$TTL 604800
+@ IN SOA ns1.k38.com. root.ns1.k38.com. (2025101201 604800 86400 2419200 604800)
+@ IN NS ns1.k38.com.
+@ IN NS ns2.k38.com.
+2 IN PTR sirion.k38.com.
+5 IN PTR lindon.k38.com.
+6 IN PTR vingilot.k38.com.
+```
+
+
+#### Validasi & restart:
+```bash 
+named-checkconf
+named-checkzone 3.230.192.in-addr.arpa /etc/bind/zones/db.192.230.3
+pkill named
+named -f &
+```
+
+#### Di Valmar (SLAVE)
+```bash 
+nano /etc/bind/named.conf.local
+Isi:
+
+zone "3.230.192.in-addr.arpa" {
+  type slave;
+  masters { 192.230.3.3; };
+  file "/var/lib/bind/db.192.230.3";
+};
+```
+
+#### Restart & cek:
+```bash pkill named
+named -f &
+ls -l /var/lib/bind/
+```
+
+#### Verifikasi
+```bash 
+# Resolver
+nano /etc/resolv.conf
+nameserver 192.230.3.3
+
+# Reverse lookup
+dig -x 192.230.3.2
+dig -x 192.230.3.5
+dig -x 192.230.3.6
+
+# Dari slave
+dig -x 192.230.3.2 @192.230.3.4
+```
+
+#foto 8
+
+
+# Soal 9
+Menjalankan web statis pada hostname **static.k38.com** dengan folder `/annals/` yang menampilkan *autoindex* agar isinya dapat ditelusuri.
+
+### DNS (Tirion)
+```bash
+nano /etc/bind/zones/db.k38.com
+
+### Tambah:
+static  IN  A  192.230.3.5
+```
+### Apache (Lindon)
+```bash 
+apt install apache2 -y
+mkdir -p /var/www/static.k38.com/annals
+echo "File test" > /var/www/static.k38.com/annals/test.txt
+
+### Virtual host:
+<VirtualHost *:80>
+ ServerName static.k38.com
+ DocumentRoot /var/www/static.k38.com
+ <Directory /var/www/static.k38.com/annals>
+     Options +Indexes
+     Require all granted
+ </Directory>
+</VirtualHost>
+```
+
+### Aktifkan:
+```bash 
+a2ensite static.k38.com.conf
+a2enmod autoindex
+apache2ctl restart
+
+### Verifikasi
+curl http://static.k38.com/annals/
+```
+
+
+# Soal 10
+Menjalankan web dinamis (PHP-FPM) pada hostname app.k38.com dengan beranda dan halaman about, serta menerapkan rewrite sehingga /about berfungsi tanpa akhiran .php.
+
+### DNS (Tirion)
+```bash 
+nano /etc/bind/zones/db.k38.com
+
+Tambah:
+app  IN  A  192.230.3.6
+``` 
+### Apache & PHP-FPM (Vingilot)
+```bash 
+apt install apache2 php-fpm -y
+a2enmod proxy_fcgi setenvif rewrite
+a2enconf php8.4-fpm
+service apache2 reload
+
+### File web:
+mkdir -p /var/www/app.k38.com
+echo "<h1>Selamat datang di App K38</h1>" > /var/www/app.k38.com/index.php
+echo "<h1>Ini halaman About</h1>" > /var/www/app.k38.com/about.php
+```
+### Virtual host:
+```bash 
+<VirtualHost *:80>
+ ServerName app.k38.com
+ DocumentRoot /var/www/app.k38.com
+ <Directory /var/www/app.k38.com>
+     AllowOverride All
+     Require all granted
+ </Directory>
+</VirtualHost>
+```
+### .htaccess:
+```bash
+RewriteEngine On
+RewriteRule ^about$ about.php [L]
+```
+### Verifikasi
+```bash
+curl http://app.k38.com/
+curl http://app.k38.com/about
+```
+#foto10
+
+
+
+
+
 
 
 
