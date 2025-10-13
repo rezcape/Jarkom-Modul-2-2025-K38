@@ -219,20 +219,21 @@ chown bind:bind /var/lib/bind
 #### Konfigurasi BIND slave
 ```bash
 nano /etc/bind/named.conf.local
+
 Restart BIND
 pkill named
 named -4 -u bind -c /etc/bind/named.conf
 ```
 
 ### Verifikasi
-# 3.1 Testing Zone Transfer
+### 3.1 Testing Zone Transfer
 ```bash
 dig @192.230.3.3 k38.com AXFR
 
-# 3.2 Cek File Zona di Valmar
+### 3.2 Cek File Zona di Valmar
 ls -l /var/lib/bind/
 
-# 3.3 Verifikasi Serial SOA
+### 3.3 Verifikasi Serial SOA
 #### Di Tirion
 dig @192.230.3.3 k38.com SOA
 ```
