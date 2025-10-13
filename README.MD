@@ -477,6 +477,352 @@ curl http://app.k38.com/about
 ```
 #foto10
 
+# Soal 11 
+Konfigurasi **Reverse Proxy** di **Sirion (192.230.3.2)** agar:
+- `/static` → diarahkan ke **Lindon (192.230.3.5)**
+- `/app` → diarahkan ke **Vingilot (192.230.3.6)**
+
+
+## Langkah Konfigurasi
+
+### 1. Konfigurasi DNS di Tirion
+```bash
+nano /etc/bind/zones/db.k38.com
+```
+### Tambahkan:
+```bash
+www    IN  CNAME   sirion.k38.com.
+sirion IN  A       192.230.3.2
+
+### Lalu validasi & restart:
+named-checkzone k38.com /etc/bind/zones/db.k38.com
+service bind9 restart
+```
+
+### 2. Konfigurasi Apache di Sirion
+#### Install & aktifkan modul:
+```bash
+apt update && apt install apache2 -y
+a2enmod proxy proxy_http headers
+service apache2 restart
+```
+
+### Buat file virtual host:
+```bash
+nano /etc/apache2/sites-available/sirion-proxy.conf
+Isi:
+<VirtualHost *:80>
+    ServerName www.k38.com
+    ServerAlias sirion.k38.com
+
+    ErrorLog ${APACHE_LOG_DIR}/sirion_error.log
+    CustomLog ${APACHE_LOG_DIR}/sirion_access.log combined
+
+    # Proxy untuk /static → Lindon
+    ProxyPass /static/ http://192.230.3.5/
+    ProxyPassReverse /static/ http://192.230.3.5/
+
+    # Proxy untuk /app → Vingilot
+    ProxyPass /app/ http://192.230.3.6/
+    ProxyPassReverse /app/ http://192.230.3.6/
+
+    ProxyPreserveHost On
+    RequestHeader set X-Real-IP %{REMOTE_ADDR}s
+</VirtualHost>
+``` 
+
+### Aktifkan:
+```bash 
+a2dissite 000-default.conf
+a2ensite sirion-proxy.conf
+service apache2 restart
+``` 
+
+### Verifikasi Soal 11
+```bash
+dig www.k38.com +short
+# → 192.230.3.2
+
+curl -s http://www.k38.com/static/annals/ | head -5
+# → Directory listing dari Lindon
+
+curl -s http://www.k38.com/app/
+# → <h1>Selamat datang di App K38</h1>
+```
+
+Soal 12 
+Menambahkan Basic Authentication di Sirion agar akses /admin hanya bisa dilakukan oleh user admin dengan password ainur.
+
+⚙️ Langkah Konfigurasi
+### 1. Buat File Password
+```bash
+apt install apache2-utils -y
+htpasswd -bc /etc/apache2/.htpasswd admin ainur
+cat /etc/apache2/.htpasswd
+```
+
+### 2. Tambahkan Konfigurasi Basic Auth
+Edit virtual host:
+```bash
+nano /etc/apache2/sites-available/sirion-proxy.conf
+```
+
+Tambahkan di dalam <VirtualHost>:
+```bash
+<Location /admin>
+    AuthType Basic
+    AuthName "Restricted Admin Area"
+    AuthUserFile /etc/apache2/.htpasswd
+    Require valid-user
+
+    ProxyPass http://192.230.3.6/
+    ProxyPassReverse http://192.230.3.6/
+</Location>
+
+### Restart:
+```bash 
+service apache2 restart
+``` 
+
+3. Buat Halaman Admin di Vingilot
+```bash 
+mkdir -p /var/www/html/admin
+echo "<h1>Admin Area - Akses Berhasil!</h1>" > /var/www/html/admin/index.html
+service apache2 restart
+```
+
+### Verifikasi Soal 12
+#### Tanpa kredensial (401 Unauthorized):
+```bash
+curl -I http://www.k38.com/admin/
+#### HTTP/1.1 401 Unauthorized
+```
+```bash
+#### Dengan kredensial benar (200 OK):
+curl -u admin:ainur -I http://www.k38.com/admin/
+# HTTP/1.1 200 OK
+```
+
+
+## Soal 13
+
+###  Langkah Konfigurasi
+#### 1. Pastikan Backend Berjalan
+```bash
+# DI LINDON (192.230.3.5)
+service apache2 restart
+curl -I http://192.230.3.5
+
+# DI VINGILOT (192.230.3.6)
+service apache2 restart
+curl -I http://192.230.3.6
+```
+
+### 2. Install dan Jalankan Nginx di Sirion
+```bash apt update
+apt install nginx -y
+service apache2 stop
+service nginx start
+service nginx status
+```
+
+### 3. Buat Konfigurasi Kanonisasi
+```bash 
+nano /etc/nginx/sites-available/k38.com
+
+# Server block untuk www.k38.com (kanonik)
+server {
+    listen 80;
+    server_name www.k38.com;
+
+    # Routing
+    location /static/ { proxy_pass http://192.230.3.5/; }
+    location /app/    { proxy_pass http://192.230.3.6/; }
+
+    # Basic Auth
+    location /admin/ {
+        auth_basic "Admin Login";
+        auth_basic_user_file /etc/nginx/.htpasswd;
+        proxy_pass http://192.230.3.6/;
+    }
+
+    # Redirect root ke /static/
+    location = / { return 302 /static/; }
+}
+
+# Redirect non-kanonik ke www.k38.com
+server {
+    listen 80;
+    server_name sirion.k38.com 192.230.3.2;
+    return 301 http://www.k38.com$request_uri;
+}
+```
+
+### 4. Setup Basic Auth
+```bash 
+apt install apache2-utils -y
+htpasswd -bc /etc/nginx/.htpasswd admin ainur
+mkdir -p /var/www/html/admin
+echo "<h1>Welcome to Admin Panel</h1>" > /var/www/html/admin/index.html
+``` 
+
+### 5. Aktifkan Konfigurasi
+```bash
+rm /etc/nginx/sites-enabled/default
+ln -s /etc/nginx/sites-available/k38.com /etc/nginx/sites-enabled/
+nginx -t
+service nginx reload
+```
+
+### Verifikasi
+### Redirect test
+```bash 
+curl -I http://sirion.k38.com/static/
+curl -I http://192.230.3.2/app/
+curl -I http://www.k38.com/
+
+### Expected Output
+HTTP/1.1 301 Moved Permanently
+Location: http://www.k38.com/static/
+```
+
+Soal 14
+Langkah Konfigurasi
+### 1. Install Nginx & PHP-FPM
+```bash 
+apt update
+apt install nginx php-fpm -y
+```
+
+### 2. Buat Aplikasi Testing
+```bash 
+mkdir -p /var/www/app
+nano /var/www/app/index.php
+
+<?php
+echo "<h1>Vingilot reporting in!</h1>";
+echo "<p>Your IP: " . $_SERVER['REMOTE_ADDR'] . "</p>";
+echo "<p>X-Real-IP: " . ($_SERVER['HTTP_X_REAL_IP'] ?? 'Not set') . "</p>";
+echo "<p>X-Forwarded-For: " . ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? 'Not set') . "</p>";
+?>
+```
+
+### 3. Konfigurasi Nginx (Vingilot)
+```bash 
+nano /etc/nginx/sites-available/app
+
+isi dengan
+
+server {
+    listen 80;
+    server_name vingilot.k38.com app.k38.com;
+    root /var/www/app;
+    index index.php;
+
+    set_real_ip_from 192.230.3.2;
+    real_ip_header X-Real-IP;
+
+    log_format realip '$http_x_real_ip - $remote_user [$time_local] "$request" $status';
+    access_log /var/log/nginx/access.log realip;
+
+    location / { try_files $uri $uri/ =404; }
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/run/php/php8.4-fpm.sock;
+    }
+}
+``` 
+
+### 4. Aktifkan & Restart
+```bash 
+ln -s /etc/nginx/sites-available/app /etc/nginx/sites-enabled/
+rm /etc/nginx/sites-enabled/default
+nginx -t
+service php8.4-fpm start
+service nginx restart
+```
+
+### 5. Update Sirion agar Kirim Header
+```bash 
+nano /etc/nginx/sites-available/k38.com
+
+### Tambahkan di block /app/:
+```bash 
+proxy_set_header X-Real-IP $remote_addr;
+
+Lalu:
+service nginx reload
+```
+
+### Verifikasi
+```
+### Dari klien
+curl http://www.k38.com/app/
+
+### Cek log di Vingilot
+tail -f /var/log/nginx/access.log
+Expected: Log menampilkan IP asli klien (X-Real-IP), bukan IP Sirion.
+
+192.230.1.10 - - [time] "GET /app/" 200
+```
+
+
+# No 15 
+Pada percobaan ini, dilakukan **pengujian performa Reverse Proxy berbasis path** menggunakan **ApacheBench (ab)** dari node **Elrond (192.230.2.4)**.  
+Pengujian dilakukan terhadap dua endpoint:
+
+- `/app` → diteruskan ke **Vingilot (192.230.3.6)** (server aplikasi PHP)
+- `/static` → diteruskan ke **Lindon (192.230.3.4)** (server file statis)
+
+Masing-masing endpoint diuji sebanyak **500 request** dengan **10 concurrency** untuk mengukur stabilitas dan performa.
+
+---
+
+## Alur Request
+
+```text
+Elrond (192.230.2.4)
+        ↓
+Sirion (192.230.3.2) - Reverse Proxy
+        ↓
+    /static/ → Lindon (192.230.3.4)
+    /app/    → Vingilot (192.230.3.6)
+```
+
+## Perintah di Node Elrond
+#### Install ApacheBench
+```bash 
+apt-get update && apt-get install -y apache2-utils
+
+#### Uji endpoint /app
+ab -n 500 -c 10 http://www.k38.com/app/
+
+#### Uji endpoint /static
+ab -n 500 -c 10 http://www.k38.com/static/
+```
+
+## 📊 Hasil Pengujian ApacheBench
+
+| Endpoint | Server Software | Complete Requests | Failed Requests | Time Taken (s) | Requests/sec | Time per Request (ms) | Transfer Rate (KB/sec) |
+|-----------|------------------|-------------------|------------------|----------------|---------------|------------------------|--------------------------|
+| `/app`    | nginx/1.11.5     | 500               | 0                | 17.465         | 28.34         | 35.991                 | 51.67                    |
+| `/static` | nginx/1.11.5     | 500               | 0                | 17.639         | 28.35         | 35.279                 | 51.99                    |
+
+
+📈 Analisis
+Semua request berhasil dijalankan tanpa error (0 failed requests).
+
+Nilai Requests/sec hampir sama antara /app dan /static, menunjukkan load balancing berjalan stabil.
+
+Endpoint /static sedikit lebih cepat karena hanya melayani konten statis.
+
+Transfer rate konsisten (~51 KB/sec), menunjukkan performa jaringan dan proxy yang optimal.
+
+Hasil ini membuktikan bahwa path-based routing di Nginx (Sirion) berfungsi dengan baik, membagi beban ke dua backend server tanpa hambatan.
+
+
+
+
 
 
 
