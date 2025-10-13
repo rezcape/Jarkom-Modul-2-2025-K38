@@ -237,9 +237,9 @@ ls -l /var/lib/bind/
 #### Di Tirion
 dig @192.230.3.3 k38.com SOA
 ```
-
 #### Di Valmar  
 ```bash
 dig @192.230.3.4 k38.com SOA
-```
+
+
 
