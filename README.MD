@@ -197,20 +197,14 @@ Konfigurasi **DNS Master-Slave** antara **Tirion (ns1)** sebagai master dan **Va
 #### Buat folder zona
 ```bash
 mkdir -p /etc/bind/zones
-```
 
 #### Buat file zona master
-```bash
 nano /etc/bind/zones/db.k38.com 
-```
 
 #### Konfigurasi BIND master
-```bash
 nano /etc/bind/named.conf.local 
-```
 
 #### Restart BIND
-```bash
 pkill named
 named -4 -u bind -c /etc/bind/named.conf
 ```
@@ -231,19 +225,15 @@ named -4 -u bind -c /etc/bind/named.conf
 ```
 
 ### Verifikasi
-3.1 Testing Zone Transfer
+# 3.1 Testing Zone Transfer
 ```bash
 dig @192.230.3.3 k38.com AXFR
-```
 
-3.2 Cek File Zona di Valmar
-```bash
+# 3.2 Cek File Zona di Valmar
 ls -l /var/lib/bind/
-```
 
-3.3 Verifikasi Serial SOA
+# 3.3 Verifikasi Serial SOA
 #### Di Tirion
-```bash
 dig @192.230.3.3 k38.com SOA
 ```
 
