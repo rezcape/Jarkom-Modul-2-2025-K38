@@ -50,6 +50,7 @@ echo "✅ BIND restarted"
 echo "🎉 Reverse DNS Master setup completed!"
 
 #Valmar
+
 echo "🔄 Setting up Reverse DNS Slave on Valmar..."
 
 # Step 1: Add reverse zone to named.conf.local
@@ -84,6 +85,7 @@ ls -l /var/lib/bind/
 echo "🎉 Reverse DNS Slave setup completed!"
 
 #verification
+
 echo "🔍 Testing Reverse DNS from client..."
 
 # Step 1: Configure DNS resolver
