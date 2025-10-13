@@ -19,8 +19,8 @@ nginx -t
 
 # Cek error log
 tail -f /var/log/nginx/error.log
-Di Lindon & Vingilot (untuk troubleshooting):
 
+Di Lindon & Vingilot (untuk troubleshooting):
 # Cek service running
 ps aux | grep nginx
 ps aux | grep php
