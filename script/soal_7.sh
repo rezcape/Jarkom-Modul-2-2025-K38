@@ -1,5 +1,7 @@
 #!/bin/bash
 
+#Tirion
+
 echo "🔄 Starting DNS Records setup on Tirion..."
 
 # Step 1: Backup original zone file
@@ -43,7 +45,7 @@ echo "✅ BIND restarted"
 
 echo "🎉 DNS Records setup completed!"
 
-
+#Valmar
 echo "🔄 Starting DNS Slave update on Valmar..."
 
 # Step 1: Remove old zone file to force fresh transfer
@@ -64,6 +66,7 @@ echo "🎉 DNS Slave update completed!"
 
 #!/bin/bash
 
+#Verification
 echo "🔄 Configuring DNS resolver on client..."
 
 # Step 1: Configure resolv.conf
