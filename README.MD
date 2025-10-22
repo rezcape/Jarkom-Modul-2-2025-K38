@@ -243,8 +243,8 @@ dig @192.230.3.3 k38.com SOA
 dig @192.230.3.4 k38.com SOA
 ```
 
-##foto
-
+![No 61 screenshot](./asset/no-61.png)
+![No 62 screenshot](./asset/no-62.png)
 
 # No 7
 
@@ -306,7 +306,7 @@ dig static.k38.com
 dig app.k38.com
 ```
 
-#foto7-
+![No 71 screenshot](./asset/no-71.png)
 
 # Soal 8
 Membuat **reverse DNS zone** untuk segmen **192.230.3.0/24** agar pencarian balik IP menampilkan hostname yang benar.
@@ -390,9 +390,7 @@ dig -x 192.230.3.6
 # Dari slave
 dig -x 192.230.3.2 @192.230.3.4
 ```
-
-#foto 8
-
+![No 81 screenshot](./asset/no-81.png)
 
 # Soal 9
 Menjalankan web statis pada hostname **static.k38.com** dengan folder `/annals/` yang menampilkan *autoindex* agar isinya dapat ditelusuri.
@@ -430,7 +428,7 @@ apache2ctl restart
 ### Verifikasi
 curl http://static.k38.com/annals/
 ```
-
+![No 91 screenshot](./asset/no-91.png)
 
 # Soal 10
 Menjalankan web dinamis (PHP-FPM) pada hostname app.k38.com dengan beranda dan halaman about, serta menerapkan rewrite sehingga /about berfungsi tanpa akhiran .php.
@@ -549,6 +547,8 @@ curl -s http://www.k38.com/static/annals/ | head -5
 curl -s http://www.k38.com/app/
 # → <h1>Selamat datang di App K38</h1>
 ```
+![No 111 screenshot](./asset/no-111.png)
+![No 111.2 screenshot](./asset/no-111.2.png)
 
 Soal 12 
 Menambahkan Basic Authentication di Sirion agar akses /admin hanya bisa dilakukan oleh user admin dengan password ainur.
@@ -602,7 +602,7 @@ curl -I http://www.k38.com/admin/
 curl -u admin:ainur -I http://www.k38.com/admin/
 # HTTP/1.1 200 OK
 ```
-
+![No 121 screenshot](./asset/no-121.png)
 
 ## Soal 13
 
@@ -685,6 +685,8 @@ curl -I http://www.k38.com/
 HTTP/1.1 301 Moved Permanently
 Location: http://www.k38.com/static/
 ```
+![No 131 screenshot](./asset/no-131.png)
+
 
 Soal 14
 Langkah Konfigurasi
@@ -765,6 +767,7 @@ Expected: Log menampilkan IP asli klien (X-Real-IP), bukan IP Sirion.
 
 192.230.1.10 - - [time] "GET /app/" 200
 ```
+![No 141 screenshot](./asset/no-141.png)
 
 
 # No 15 
@@ -820,6 +823,8 @@ Transfer rate konsisten (~51 KB/sec), menunjukkan performa jaringan dan proxy ya
 
 Hasil ini membuktikan bahwa path-based routing di Nginx (Sirion) berfungsi dengan baik, membagi beban ke dua backend server tanpa hambatan.
 
+![No 151 screenshot](./asset/no-151.png)
+![No 151.2 screenshot](./asset/no-151.2.png)
 
 
 
