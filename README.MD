@@ -243,8 +243,8 @@ dig @192.230.3.3 k38.com SOA
 dig @192.230.3.4 k38.com SOA
 ```
 
-![No 61 screenshot](./asset/no.61.png)
-![No 62 screenshot](./asset/no.62.png)
+![No 61 screenshot](./asset/61.png)
+![No 62 screenshot](./asset/62.png)
 
 # No 7
 
