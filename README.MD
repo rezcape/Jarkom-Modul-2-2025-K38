@@ -184,7 +184,260 @@ Untuk memastikan DNS Slave berfungsi, layanan BIND9 pada DNS Master (Tirion) dim
 
 # Soal 5
 
+# Soal 5
 
+## Akses Internet Awal
+
+Sebelum konfigurasi DNS internal, semua node perlu mengunduh paket seperti bind9. Kita sementara mengarahkan resolver DNS ke gateway (192.168.122.1) agar apt-get dapat mengakses internet.
+
+```
+# Perintah sementara untuk akses internet di semua node
+echo "nameserver 192.168.122.1" > /etc/resolv.conf
+```
+
+### 1. Konfigurasi Hostname & /etc/hosts
+
+Pertama, kita atur hostname unik di setiap node untuk identifikasi. Kemudian, kita mengisi file /etc/hosts di semua 11 node. File ini berfungsi sebagai DNS statis lokal agar node bisa saling ping via nama sebelum BIND9 aktif.
+
+```
+# [Di EONWE]
+echo "eonwe" > /etc/hostname
+hostname -F /etc/hostname
+
+# [Di EARENDIL]
+echo "earendil" > /etc/hostname
+hostname -F /etc/hostname
+
+# [Ulangi untuk semua node: elwing, cirdan, elrond, maglor, sirion, tirion, valmar, lindon, vingilot]
+
+# [Jalankan di SEMUA 11 node]
+cat >> /etc/hosts << EOF
+192.230.1.1    eonwe.K38.com eonwe
+192.230.1.2    earendil.K38.com earendil
+192.230.1.3    elwing.K38.com elwing
+192.230.2.2    cirdan.K38.com cirdan
+192.230.2.3    elrond.K38.com elrond
+192.230.2.4    maglor.K38.com maglor
+192.230.3.2    sirion.K38.com sirion
+192.230.3.3    tirion.K38.com tirion ns1.K38.com
+192.230.3.4    valmar.K38.com valmar ns2.K38.com
+192.230.3.5    lindon.K38.com lindon
+192.230.3.6    vingilot.K38.com vingilot
+EOF
+```
+
+### 2. Instalasi DNS Master di Tirion
+
+Kita instal bind9 di Tirion (192.230.3.3) untuk menjadikannya server DNS Master. Selanjutnya, kita edit /etc/bind/named.conf.local untuk mendaftarkan semua zona yang akan dikelola. Ini termasuk zona K38.com (yang diizinkan untuk ditransfer ke Valmar) dan semua zona individu seperti eonwe.com dan lindon.com.
+
+```
+# [Di TIRION]
+apt-get update
+apt-get install bind9 bind9utils dnsutils -y
+
+# Konfigurasi zona master
+nano /etc/bind/named.conf.local
+```
+
+```
+# Isi /etc/bind/named.conf.local di TIRION
+zone "K38.com" {
+    type master;
+    file "/etc/bind/K38.com/K38.com";
+    allow-transfer { 192.230.3.4; }; // IP Valmar (ns2)
+};
+
+zone "eonwe.com" { type master; file "/etc/bind/zones/eonwe.com"; };
+zone "earendil.com" { type master; file "/etc/bind/zones/earendil.com"; };
+zone "elwing.com" { type master; file "/etc/bind/zones/elwing.com"; };
+zone "cirdan.com" { type master; file "/etc/bind/zones/cirdan.com"; };
+zone "elrond.com" { type master; file "/etc/bind/zones/elrond.com"; };
+zone "maglor.com" { type master; file "/etc/bind/zones/maglor.com"; };
+zone "sirion.com" { type master; file "/etc/bind/zones/sirion.com"; };
+zone "lindon.com" { type master; file "/etc/bind/zones/lindon.com"; };
+zone "vingilot.com" { type master; file "/etc/bind/zones/vingilot.com"; };
+```
+
+### 3. Pembuatan File Zona Utama (K38.com)
+
+Di Tirion, kita membuat direktori /etc/bind/K38.com dan /etc/bind/zones sesuai konfigurasi. Kita kemudian membuat file zona untuk K38.com yang berisi record SOA (otoritas) dan NS (menunjuk ke ns1 dan ns2). File ini juga berisi A records untuk memetakan semua hostname (seperti sirion, eonwe) ke alamat IP mereka.
+
+```
+# [Di TIRION]
+mkdir -p /etc/bind/K38.com
+mkdir -p /etc/bind/zones
+
+# Buat file zona utama
+nano /etc/bind/K38.com/K38.com
+```
+
+```
+; Isi /etc/bind/K38.com/K38.com
+$TTL    604800
+@       IN      SOA     ns1.K38.com. root.K38.com. (
+                        2025101301 ; Serial
+                        604800     ; Refresh
+                        86400      ; Retry
+                        2419200    ; Expire
+                        604800 )   ; Negative Cache TTL
+; Name Servers
+@       IN      NS      ns1.K38.com.
+@       IN      NS      ns2.K38.com.
+; A Records untuk Nameservers
+ns1     IN      A       192.230.3.3     ; Tirion
+ns2     IN      A       192.230.3.4     ; Valmar
+; A Record domain utama
+@       IN      A       192.230.3.2     ; Sirion
+; Hostname Records
+eonwe     IN      A       192.230.1.1
+earendil  IN      A       192.230.1.2
+elwing    IN      A       192.230.1.3
+cirdan    IN      A       192.230.2.2
+elrond    IN      A       192.230.2.3
+maglor    IN      A       192.230.2.4
+sirion    IN      A       192.230.3.2
+lindon    IN      A       192.230.3.5
+vingilot  IN      A       192.230.3.6
+```
+
+### 4. Pembuatan File Zona Individual
+
+Setiap node juga memiliki domainnya sendiri, seperti eonwe.com. Kita membuat file zona individual di /etc/bind/zones/ untuk setiap domain. File-file ini berisi record SOA, NS (yang tetap menunjuk ke ns1 dan ns2), serta A record untuk @, www, dan eru yang mengarah ke IP node tersebut.
+
+```
+# [Di TIRION]
+# Buat file zona untuk eonwe.com
+nano /etc/bind/zones/eonwe.com
+```
+
+```
+; Isi /etc/bind/zones/eonwe.com
+$TTL    604800
+@       IN      SOA     ns1.K38.com. root.eonwe.com. ( 2025101301 604800 86400 2419200 604800 )
+@       IN      NS      ns1.K38.com.
+@       IN      NS      ns2.K38.com.
+@       IN      A       192.230.1.1
+eru     IN      A       192.230.1.1
+www     IN      A       192.230.1.1
+```
+
+```
+# [Di TIRION]
+# Buat file zona untuk earendil.com
+nano /etc/bind/zones/earendil.com
+```
+
+```
+; Isi /etc/bind/zones/earendil.com
+$TTL    604800
+@       IN      SOA     ns1.K38.com. root.earendil.com. ( 2025101301 604800 86400 2419200 604800 )
+@       IN      NS      ns1.K38.com.
+@       IN      NS      ns2.K38.com.
+@       IN      A       192.230.1.2
+eru     IN      A       192.230.1.2
+www     IN      A       192.230.1.2
+```
+
+```
+# [Di TIRION]
+# Ulangi proses nano /etc/bind/zones/NAMADOMAIN.com untuk:
+# elwing.com (192.230.1.3)
+# cirdan.com (192.230.2.2)
+# elrond.com (192.230.2.3)
+# maglor.com (192.230.2.4)
+# sirion.com (192.230.3.2)
+# lindon.com (192.230.3.5)
+# vingilot.com (192.230.3.6)
+# ... (pastikan IP Address sesuai)
+```
+
+### 5. Pengecekan & Restart DNS Master (Tirion)
+
+Validasi konfigurasi sangat penting sebelum restart. Kita gunakan named-checkconf untuk sintaks file .local dan named-checkzone untuk setiap file zona. Jika tidak ada error, kita restart layanan bind9 di Tirion untuk menerapkan semua perubahan.
+
+```
+# [Di TIRION]
+named-checkconf
+named-checkzone K38.com /etc/bind/K38.com/K38.com
+named-checkzone eonwe.com /etc/bind/zones/eonwe.com
+# ... (cek semua zone individual)
+
+# Symlink jika perlu
+ln -s /etc/init.d/named /etc/init.d/bind9
+
+service bind9 restart
+service bind9 status
+```
+
+### 6. Instalasi DNS Slave di Valmar
+
+Valmar (192.230.3.4) diatur sebagai server DNS Slave untuk redundansi. Setelah menginstal bind9, kita konfigurasikan named.conf.local di Valmar untuk menjadi slave dari zona K38.com, dengan master menunjuk ke IP Tirion. Saat di-restart, Valmar akan otomatis menyalin zona K38.com dari Tirion.
+
+```
+# [Di VALMAR]
+apt-get update
+apt-get install bind9 bind9utils dnsutils -y
+
+# Konfigurasi zona slave
+nano /etc/bind/named.conf.local
+```
+
+```
+# Isi /etc/bind/named.conf.local di VALMAR
+zone "K38.com" {
+    type slave;
+    masters { 192.230.3.3; }; // IP Tirion (ns1)
+    file "/var/cache/bind/K38.com";
+};
+```
+
+```
+# [Di VALMAR]
+# Symlink jika perlu
+ln -s /etc/init.d/named /etc/init.d/bind9
+
+service bind9 restart
+service bind9 status
+```
+
+### 9. Konfigurasi Klien DNS
+
+Kedua server DNS kini aktif, jadi kita arahkan semua klien untuk menggunakannya. Di setiap klien, kita edit /etc/resolv.conf untuk menambahkan nameserver Tirion (ns1) dan Valmar (ns2). Perintah search K38.com ditambahkan agar kita bisa ping sirion tanpa mengetik domain lengkapnya.
+
+```
+# [Jalankan di SEMUA KLIEN (Eonwe, Earendil, Elwing, Cirdan, Elrond, Maglor, Sirion, Lindon, Vingilot)]
+cat <<EOF > /etc/resolv.conf
+nameserver 192.230.3.3
+nameserver 192.230.3.4
+search K38.com
+EOF
+```
+
+### 7. Testing
+
+Terakhir, kita lakukan verifikasi dari sisi klien. Kita gunakan ping untuk menguji resolusi nama domain K38.com dan domain individual. Perintah dig dan nslookup digunakan untuk kueri yang lebih detail, seperti mengecek record NS atau menguji server slave (ns2) secara langsung.
+
+```
+# [Jalankan di KLIEN manapun]
+
+# Test 1: Ping hostname di K38.com
+ping -c 2 sirion.K38.com
+ping -c 2 eonwe.K38.com
+
+# Test 2: Ping domain individual
+ping -c 2 eonwe.com
+ping -c 2 eru.eonwe.com
+ping -c 2 www.earendil.com
+
+# Test 3: Dig queries
+dig sirion.K38.com
+dig eru.eonwe.com
+
+# Test 4: Cek nameserver
+dig NS K38.com
+dig @ns1.K38.com K38.com
+dig @ns2.K38.com K38.com
+```
 
 # Soal 6: Konfigurasi DNS Master-Slave
 
@@ -195,14 +448,15 @@ Konfigurasi **DNS Master-Slave** antara **Tirion (ns1)** sebagai master dan **Va
 ### 1. Konfigurasi di Tirion (MASTER)
 
 #### Buat folder zona
+
 ```bash
 mkdir -p /etc/bind/zones
 
 #### Buat file zona master
-nano /etc/bind/zones/db.k38.com 
+nano /etc/bind/zones/db.k38.com
 
 #### Konfigurasi BIND master
-nano /etc/bind/named.conf.local 
+nano /etc/bind/named.conf.local
 
 #### Restart BIND
 pkill named
@@ -210,13 +464,16 @@ named -4 -u bind -c /etc/bind/named.conf
 ```
 
 2. Konfigurasi di Valmar (SLAVE)
+
 #### Persiapan folder
+
 ```bash
 mkdir -p /var/lib/bind
 chown bind:bind /var/lib/bind
 ```
 
 #### Konfigurasi BIND slave
+
 ```bash
 nano /etc/bind/named.conf.local
 
@@ -226,9 +483,11 @@ named -4 -u bind -c /etc/bind/named.conf
 ```
 
 ### Verifikasi
-Kita bisa liat bahwa Valmar dan Tirion mempunyai SOA yg sama 
+
+Kita bisa liat bahwa Valmar dan Tirion mempunyai SOA yg sama
 
 ## 3.1 Testing Zone Transfer
+
 ```bash
 dig @192.230.3.3 k38.com AXFR
 
@@ -239,7 +498,7 @@ ls -l /var/lib/bind/
 #### Di Tirion
 dig @192.230.3.3 k38.com SOA
 
-#### Di Valmar  
+#### Di Valmar
 dig @192.230.3.4 k38.com SOA
 ```
 
@@ -249,20 +508,22 @@ dig @192.230.3.4 k38.com SOA
 # No 7
 
 ### IP & CNAME Mapping
-| Host / Alias        | IP / Canonical Name      |
-|-------------------|------------------------|
-| sirion.k38.com     | 192.230.3.5 (gateway)  |
-| lindon.k38.com     | 192.230.3.6 (web statis) |
-| vingilot.k38.com   | 192.230.3.7 (web dinamis) |
-| www.k38.com        | sirion.k38.com         |
-| static.k38.com     | lindon.k38.com         |
-| app.k38.com        | vingilot.k38.com       |
 
+| Host / Alias     | IP / Canonical Name       |
+| ---------------- | ------------------------- |
+| sirion.k38.com   | 192.230.3.5 (gateway)     |
+| lindon.k38.com   | 192.230.3.6 (web statis)  |
+| vingilot.k38.com | 192.230.3.7 (web dinamis) |
+| www.k38.com      | sirion.k38.com            |
+| static.k38.com   | lindon.k38.com            |
+| app.k38.com      | vingilot.k38.com          |
 
 ## Langkah Konfigurasi
 
 ### 1️⃣ Tirion (MASTER)
+
 1. **Edit file zona**
+
 ```bash
 nano /etc/bind/zones/db.k38.com
 ```
@@ -271,7 +532,7 @@ nano /etc/bind/zones/db.k38.com
 
 #### Restart BIND untuk zone transfer
 
-```bash 
+```bash
 pkill named
 named -4 -u bind -c /etc/bind/named.conf
 
@@ -283,6 +544,7 @@ dig @192.230.3.3 k38.com AXFR
 ### 3️⃣ Verifikasi dari Klien
 
 #### Konfigurasi resolver
+
 ```
 nano /etc/resolv.conf
 
@@ -292,15 +554,16 @@ nameserver 192.230.3.4
 ```
 
 #### Test A Records
-```bash 
+
+```bash
 dig sirion.k38.com
 dig lindon.k38.com
 dig vingilot.k38.com
 ```
 
-
 #### Test CNAME Records
-``` bash 
+
+```bash
 dig www.k38.com
 dig static.k38.com
 dig app.k38.com
@@ -309,17 +572,19 @@ dig app.k38.com
 ![No 71 screenshot](./asset/71.png)
 
 # Soal 8
+
 Membuat **reverse DNS zone** untuk segmen **192.230.3.0/24** agar pencarian balik IP menampilkan hostname yang benar.
 
 ## ⚙️ Konfigurasi
+
 **Tirion (ns1):** 192.230.3.3  
 **Valmar (ns2):** 192.230.3.4  
 **Reverse Zone:** `3.230.192.in-addr.arpa`
 
-
 ## 🔧 Langkah
 
 ### Di Tirion (MASTER)
+
 ```bash
 mkdir -p /etc/bind/zones
 nano /etc/bind/named.conf.local
@@ -333,9 +598,9 @@ zone "3.230.192.in-addr.arpa" {
 };
 ```
 
-
 #### Buat file zona:
-```bash 
+
+```bash
 nano /etc/bind/zones/db.192.230.3
 
 Isi:
@@ -349,9 +614,9 @@ $TTL 604800
 6 IN PTR vingilot.k38.com.
 ```
 
-
 #### Validasi & restart:
-```bash 
+
+```bash
 named-checkconf
 named-checkzone 3.230.192.in-addr.arpa /etc/bind/zones/db.192.230.3
 pkill named
@@ -359,7 +624,8 @@ named -f &
 ```
 
 #### Di Valmar (SLAVE)
-```bash 
+
+```bash
 nano /etc/bind/named.conf.local
 Isi:
 
@@ -371,13 +637,15 @@ zone "3.230.192.in-addr.arpa" {
 ```
 
 #### Restart & cek:
+
 ```bash pkill named
 named -f &
 ls -l /var/lib/bind/
 ```
 
 #### Verifikasi
-```bash 
+
+```bash
 # Resolver
 nano /etc/resolv.conf
 nameserver 192.230.3.3
@@ -390,20 +658,25 @@ dig -x 192.230.3.6
 # Dari slave
 dig -x 192.230.3.2 @192.230.3.4
 ```
+
 ![screenshot](./asset/81.png)
 
 # Soal 9
-Menjalankan web statis pada hostname **static.k38.com** dengan folder `/annals/` yang menampilkan *autoindex* agar isinya dapat ditelusuri.
+
+Menjalankan web statis pada hostname **static.k38.com** dengan folder `/annals/` yang menampilkan _autoindex_ agar isinya dapat ditelusuri.
 
 ### DNS (Tirion)
+
 ```bash
 nano /etc/bind/zones/db.k38.com
 
 ### Tambah:
 static  IN  A  192.230.3.5
 ```
+
 ### Apache (Lindon)
-```bash 
+
+```bash
 apt install apache2 -y
 mkdir -p /var/www/static.k38.com/annals
 echo "File test" > /var/www/static.k38.com/annals/test.txt
@@ -420,7 +693,8 @@ echo "File test" > /var/www/static.k38.com/annals/test.txt
 ```
 
 ### Aktifkan:
-```bash 
+
+```bash
 a2ensite static.k38.com.conf
 a2enmod autoindex
 apache2ctl restart
@@ -428,20 +702,25 @@ apache2ctl restart
 ### Verifikasi
 curl http://static.k38.com/annals/
 ```
+
 ![No 91 screenshot](./asset/91.png)
 
 # Soal 10
+
 Menjalankan web dinamis (PHP-FPM) pada hostname app.k38.com dengan beranda dan halaman about, serta menerapkan rewrite sehingga /about berfungsi tanpa akhiran .php.
 
 ### DNS (Tirion)
-```bash 
+
+```bash
 nano /etc/bind/zones/db.k38.com
 
 Tambah:
 app  IN  A  192.230.3.6
-``` 
+```
+
 ### Apache & PHP-FPM (Vingilot)
-```bash 
+
+```bash
 apt install apache2 php-fpm -y
 a2enmod proxy_fcgi setenvif rewrite
 a2enconf php8.4-fpm
@@ -452,8 +731,10 @@ mkdir -p /var/www/app.k38.com
 echo "<h1>Selamat datang di App K38</h1>" > /var/www/app.k38.com/index.php
 echo "<h1>Ini halaman About</h1>" > /var/www/app.k38.com/about.php
 ```
+
 ### Virtual host:
-```bash 
+
+```bash
 <VirtualHost *:80>
  ServerName app.k38.com
  DocumentRoot /var/www/app.k38.com
@@ -463,31 +744,40 @@ echo "<h1>Ini halaman About</h1>" > /var/www/app.k38.com/about.php
  </Directory>
 </VirtualHost>
 ```
+
 ### .htaccess:
+
 ```bash
 RewriteEngine On
 RewriteRule ^about$ about.php [L]
 ```
+
 ### Verifikasi
+
 ```bash
 curl http://app.k38.com/
 curl http://app.k38.com/about
 ```
+
 #foto10
 
-# Soal 11 
+# Soal 11
+
 Konfigurasi **Reverse Proxy** di **Sirion (192.230.3.2)** agar:
+
 - `/static` → diarahkan ke **Lindon (192.230.3.5)**
 - `/app` → diarahkan ke **Vingilot (192.230.3.6)**
-
 
 ## Langkah Konfigurasi
 
 ### 1. Konfigurasi DNS di Tirion
+
 ```bash
 nano /etc/bind/zones/db.k38.com
 ```
+
 ### Tambahkan:
+
 ```bash
 www    IN  CNAME   sirion.k38.com.
 sirion IN  A       192.230.3.2
@@ -498,7 +788,9 @@ service bind9 restart
 ```
 
 ### 2. Konfigurasi Apache di Sirion
+
 #### Install & aktifkan modul:
+
 ```bash
 apt update && apt install apache2 -y
 a2enmod proxy proxy_http headers
@@ -506,6 +798,7 @@ service apache2 restart
 ```
 
 ### Buat file virtual host:
+
 ```bash
 nano /etc/apache2/sites-available/sirion-proxy.conf
 Isi:
@@ -527,16 +820,18 @@ Isi:
     ProxyPreserveHost On
     RequestHeader set X-Real-IP %{REMOTE_ADDR}s
 </VirtualHost>
-``` 
+```
 
 ### Aktifkan:
-```bash 
+
+```bash
 a2dissite 000-default.conf
 a2ensite sirion-proxy.conf
 service apache2 restart
-``` 
+```
 
 ### Verifikasi Soal 11
+
 ```bash
 dig www.k38.com +short
 # → 192.230.3.2
@@ -547,14 +842,18 @@ curl -s http://www.k38.com/static/annals/ | head -5
 curl -s http://www.k38.com/app/
 # → <h1>Selamat datang di App K38</h1>
 ```
+
 ![No 111 screenshot](./asset/111.png)
 ![No 111.2 screenshot](./asset/111.2.png)
 
-# Soal 12 
+# Soal 12
+
 Menambahkan Basic Authentication di Sirion agar akses /admin hanya bisa dilakukan oleh user admin dengan password ainur.
 
 ⚙️ Langkah Konfigurasi
+
 ### 1. Buat File Password
+
 ```bash
 apt install apache2-utils -y
 htpasswd -bc /etc/apache2/.htpasswd admin ainur
@@ -562,13 +861,16 @@ cat /etc/apache2/.htpasswd
 ```
 
 ### 2. Tambahkan Konfigurasi Basic Auth
+
 Edit virtual host:
+
 ```bash
 nano /etc/apache2/sites-available/sirion-proxy.conf
 ```
 
 Tambahkan di dalam <VirtualHost>:
-```bash
+
+````bash
 <Location /admin>
     AuthType Basic
     AuthName "Restricted Admin Area"
@@ -580,36 +882,42 @@ Tambahkan di dalam <VirtualHost>:
 </Location>
 
 ### Restart:
-```bash 
+```bash
 service apache2 restart
-``` 
+````
 
 3. Buat Halaman Admin di Vingilot
-```bash 
+
+```bash
 mkdir -p /var/www/html/admin
 echo "<h1>Admin Area - Akses Berhasil!</h1>" > /var/www/html/admin/index.html
 service apache2 restart
 ```
 
 ### Verifikasi Soal 12
+
 #### Tanpa kredensial (401 Unauthorized):
+
 ```bash
 curl -I http://www.k38.com/admin/
 #### HTTP/1.1 401 Unauthorized
 ```
+
 ```bash
 #### Dengan kredensial benar (200 OK):
 curl -u admin:ainur -I http://www.k38.com/admin/
 # HTTP/1.1 200 OK
 ```
+
 ![No 121 screenshot](./asset/121.png)
 ![No 121 screenshot](./asset/121.2.png)
 
-
 ## Soal 13
 
-###  Langkah Konfigurasi
+### Langkah Konfigurasi
+
 #### 1. Pastikan Backend Berjalan
+
 ```bash
 # DI LINDON (192.230.3.5)
 service apache2 restart
@@ -621,6 +929,7 @@ curl -I http://192.230.3.6
 ```
 
 ### 2. Install dan Jalankan Nginx di Sirion
+
 ```bash apt update
 apt install nginx -y
 service apache2 stop
@@ -629,7 +938,8 @@ service nginx status
 ```
 
 ### 3. Buat Konfigurasi Kanonisasi
-```bash 
+
+```bash
 nano /etc/nginx/sites-available/k38.com
 
 # Server block untuk www.k38.com (kanonik)
@@ -661,14 +971,16 @@ server {
 ```
 
 ### 4. Setup Basic Auth
-```bash 
+
+```bash
 apt install apache2-utils -y
 htpasswd -bc /etc/nginx/.htpasswd admin ainur
 mkdir -p /var/www/html/admin
 echo "<h1>Welcome to Admin Panel</h1>" > /var/www/html/admin/index.html
-``` 
+```
 
 ### 5. Aktifkan Konfigurasi
+
 ```bash
 rm /etc/nginx/sites-enabled/default
 ln -s /etc/nginx/sites-available/k38.com /etc/nginx/sites-enabled/
@@ -677,8 +989,10 @@ service nginx reload
 ```
 
 ### Verifikasi
+
 ### Redirect test
-```bash 
+
+```bash
 curl -I http://sirion.k38.com/static/
 curl -I http://192.230.3.2/app/
 curl -I http://www.k38.com/
@@ -687,20 +1001,23 @@ curl -I http://www.k38.com/
 HTTP/1.1 301 Moved Permanently
 Location: http://www.k38.com/static/
 ```
-![No 131 screenshot](./asset/131.png)
 
+![No 131 screenshot](./asset/131.png)
 
 # Soal 14
 
 Langkah Konfigurasi
+
 ### 1. Install Nginx & PHP-FPM
-```bash 
+
+```bash
 apt update
 apt install nginx php-fpm -y
 ```
 
 ### 2. Buat Aplikasi Testing
-```bash 
+
+```bash
 mkdir -p /var/www/app
 nano /var/www/app/index.php
 
@@ -713,7 +1030,8 @@ echo "<p>X-Forwarded-For: " . ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? 'Not set') . 
 ```
 
 ### 3. Konfigurasi Nginx (Vingilot)
-```bash 
+
+```bash
 nano /etc/nginx/sites-available/app
 
 isi dengan
@@ -736,10 +1054,11 @@ server {
         fastcgi_pass unix:/run/php/php8.4-fpm.sock;
     }
 }
-``` 
+```
 
 ### 4. Aktifkan & Restart
-```bash 
+
+```bash
 ln -s /etc/nginx/sites-available/app /etc/nginx/sites-enabled/
 rm /etc/nginx/sites-enabled/default
 nginx -t
@@ -748,18 +1067,20 @@ service nginx restart
 ```
 
 ### 5. Update Sirion agar Kirim Header
-```bash 
+
+````bash
 nano /etc/nginx/sites-available/k38.com
 
 ### Tambahkan di block /app/:
-```bash 
+```bash
 proxy_set_header X-Real-IP $remote_addr;
 
 Lalu:
 service nginx reload
-```
+````
 
 ### Verifikasi
+
 ```
 ### Dari klien
 curl http://www.k38.com/app/
@@ -770,10 +1091,11 @@ Expected: Log menampilkan IP asli klien (X-Real-IP), bukan IP Sirion.
 
 192.230.1.10 - - [time] "GET /app/" 200
 ```
+
 ![No 141 screenshot](./asset/141.png)
 
+# No 15
 
-# No 15 
 Pada percobaan ini, dilakukan **pengujian performa Reverse Proxy berbasis path** menggunakan **ApacheBench (ab)** dari node **Elrond (192.230.2.4)**.  
 Pengujian dilakukan terhadap dua endpoint:
 
@@ -796,8 +1118,10 @@ Sirion (192.230.3.2) - Reverse Proxy
 ```
 
 ## Perintah di Node Elrond
+
 #### Install ApacheBench
-```bash 
+
+```bash
 apt-get update && apt-get install -y apache2-utils
 
 #### Uji endpoint /app
@@ -809,11 +1133,10 @@ ab -n 500 -c 10 http://www.k38.com/static/
 
 ## 📊 Hasil Pengujian ApacheBench
 
-| Endpoint | Server Software | Complete Requests | Failed Requests | Time Taken (s) | Requests/sec | Time per Request (ms) | Transfer Rate (KB/sec) |
-|-----------|------------------|-------------------|------------------|----------------|---------------|------------------------|--------------------------|
-| `/app`    | nginx/1.11.5     | 500               | 0                | 17.465         | 28.34         | 35.991                 | 51.67                    |
-| `/static` | nginx/1.11.5     | 500               | 0                | 17.639         | 28.35         | 35.279                 | 51.99                    |
-
+| Endpoint  | Server Software | Complete Requests | Failed Requests | Time Taken (s) | Requests/sec | Time per Request (ms) | Transfer Rate (KB/sec) |
+| --------- | --------------- | ----------------- | --------------- | -------------- | ------------ | --------------------- | ---------------------- |
+| `/app`    | nginx/1.11.5    | 500               | 0               | 17.465         | 28.34        | 35.991                | 51.67                  |
+| `/static` | nginx/1.11.5    | 500               | 0               | 17.639         | 28.35        | 35.279                | 51.99                  |
 
 📈 Analisis
 Semua request berhasil dijalankan tanpa error (0 failed requests).
@@ -828,14 +1151,3 @@ Hasil ini membuktikan bahwa path-based routing di Nginx (Sirion) berfungsi denga
 
 ![No 151 screenshot](./asset/151.png)
 ![No 151.2 screenshot](./asset/151.2.png)
-
-
-
-
-
-
-
-
-
-
-
