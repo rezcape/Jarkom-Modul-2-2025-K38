@@ -18,43 +18,29 @@ zone "K38.com" {
 #Make folder inside /etc/bind
 mkdir /etc/bind/K38.com
 
-#Make zone.template inside /etc/bind/ directory.
-nano /etc/bind/zone.template
-
-#Fill the zone.template with the following configuration
-$TTL    604800          ; Waktu cache default (detik)
-@       IN      SOA     localhost. root.localhost. (
-                        2025100401 ; Serial (format YYYYMMDDXX)
-                        604800     ; Refresh (1 minggu)
-                        86400      ; Retry (1 hari)
-                        2419200    ; Expire (4 minggu)
-                        604800 )   ; Negative Cache TTL
-;
-
-@       IN      NS      localhost.
-@       IN      A       127.0.0.1
-
-#Copy zone.template to /etc/bind/k38.com/ns1.K38.com
-cp /etc/bind/zone.template /etc/bind/K38.com/ns1.K38.com
 
 #Edit the /etc/bind/k38.com/ns1.K38.com
 nano /etc/bind/K38.com/ns1.K38.com
 
-#Fill the ns1.K38.com with the following configuration
-$TTL    604800          ; Waktu cache default (detik)
-@       IN      SOA     ns1.K38.com. root.ns1.K38.com. (
-                        2025100401 ; Serial (format YYYYMMDDXX)
-                        604800     ; Refresh (1 minggu)
-                        86400      ; Retry (1 hari)
-                        2419200    ; Expire (4 minggu)
-                        604800 )   ; Negative Cache TTL
+#Fill the ns1.K38.com with the following configuration(using zone template on github)
+$TTL    604800
+@       IN      SOA     ns1.K38.com. root.K38.com. (
+                      2025100401 ; Serial
+                      604800     ; Refresh
+                      86400      ; Retry
+                      2419200    ; Expire
+                      604800 )   ; Negative Cache TTL
 ;
-
+; --- Daftar Name Server Resmi ---
 @       IN      NS      ns1.K38.com.
 @       IN      NS      ns2.K38.com.
 
-@       IN      A       192.230.3.3
-@       IN      A       192.230.3.4
+; --- A Record untuk Name Server
+ns1     IN      A       192.230.3.3   ; IP Tirion
+ns2     IN      A       192.230.3.4   ; IP Valmar
+
+; --- A Record untuk Domain Utama 
+@       IN      A       192.230.3.1   ; IP Sirion (Gerbang Depan)
 
 
 #restart bind9
@@ -70,9 +56,10 @@ nameserver 192.230.3.4
 #Testing
 ping K38.com -c 5
 
-#Make DNS Slave
+#Make DNS Slave on Valmar
 nano /etc/bind/named.conf.local
 
+#Add the following configuration to the named.conf.local on Tirion
 zone "K38.com" {
     type master;
     notify yes;
@@ -101,6 +88,8 @@ ln -s /etc/init.d/named /etc/init.d/bind9
 service bind9 restart
 
 #Testing on client
-service bind9 stop
-
 ping K38.com -c 5
+
+#or
+
+dig k38.com 
