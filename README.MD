@@ -390,7 +390,7 @@ dig -x 192.230.3.6
 # Dari slave
 dig -x 192.230.3.2 @192.230.3.4
 ```
-![No 81 screenshot](./asset/81.png)
+![screenshot](./asset/81.png)
 
 # Soal 9
 Menjalankan web statis pada hostname **static.k38.com** dengan folder `/annals/` yang menampilkan *autoindex* agar isinya dapat ditelusuri.
@@ -690,7 +690,8 @@ Location: http://www.k38.com/static/
 ![No 131 screenshot](./asset/131.png)
 
 
-Soal 14
+# Soal 14
+
 Langkah Konfigurasi
 ### 1. Install Nginx & PHP-FPM
 ```bash 
