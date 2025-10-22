@@ -550,7 +550,7 @@ curl -s http://www.k38.com/app/
 ![No 111 screenshot](./asset/111.png)
 ![No 111.2 screenshot](./asset/111.2.png)
 
-Soal 12 
+# Soal 12 
 Menambahkan Basic Authentication di Sirion agar akses /admin hanya bisa dilakukan oleh user admin dengan password ainur.
 
 ⚙️ Langkah Konfigurasi
@@ -603,6 +603,8 @@ curl -u admin:ainur -I http://www.k38.com/admin/
 # HTTP/1.1 200 OK
 ```
 ![No 121 screenshot](./asset/121.png)
+![No 121 screenshot](./asset/121.2.png)
+
 
 ## Soal 13
 
@@ -685,7 +687,7 @@ curl -I http://www.k38.com/
 HTTP/1.1 301 Moved Permanently
 Location: http://www.k38.com/static/
 ```
-![No 131 screenshot](./asset/no-131.png)
+![No 131 screenshot](./asset/131.png)
 
 
 Soal 14
