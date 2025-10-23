@@ -759,7 +759,7 @@ curl http://app.k38.com/
 curl http://app.k38.com/about
 ```
 
-#foto10
+![No 100 screenshot](./asset/100.png)
 
 # Soal 11
 
